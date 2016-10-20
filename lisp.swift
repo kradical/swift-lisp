@@ -9,81 +9,104 @@ enum TokenType {
     case err // error
 }
 
+// Tracking globals
+var lineBuf = [Character]() // current line
+var ch: Character? // current char
+var tok: TokenType = TokenType.empty// current token
+
+func consume_while(_ condition: (Character?) -> Bool) -> [Character] {
+    var characters = [Character]()
+
+    while condition(ch) {
+        characters.append(ch!)
+        next_char()
+    }
+
+    return characters
+}
+
+func read_line() {
+    if let line = readLine() {
+        lineBuf = Array(line.characters)
+    }
+}
+
+func next_char() {
+    if lineBuf.count == 0 {
+        read_line()
+        if lineBuf.count == 0 {
+            ch = nil
+        } else {
+            ch = lineBuf.remove(at: 0)
+        }
+    } else {
+        ch = lineBuf.remove(at: 0)
+    }
+}
+
+func is_digit(c: Character) -> Bool {
+    return c <= "9" && c >= "0"
+}
+func is_alpha(c: Character) -> Bool {
+    return (c >= "a" && c <= "z") || (c >= "A" && c <= "Z")
+}
+func is_whitespace(c: Character) -> Bool {
+    return c == " " || c == "\n"
+}
+func wrap_opt(_ f: @escaping (Character) -> Bool) -> (Character?) -> Bool {
+    return { 
+        if $0 == nil {
+            return false 
+        } else {
+            return f($0!)
+        }
+    }
+}
+
+// setup an unread character before calling this function
+// works well with consume_while
+func next_token() {
+    let _ = consume_while(wrap_opt(is_whitespace))
+    if ch == nil {
+        tok = TokenType.end
+        return
+    }
+
+    switch ch! {
+    case "(": 
+        tok = TokenType.lparen
+        next_char()
+    case ")":
+        tok = TokenType.rparen
+        next_char()
+    case ".":
+        tok = TokenType.dot
+    case "0"..."9":
+        let number = consume_while(wrap_opt(is_digit))
+        tok = TokenType.number(Int(String(number))!)
+    default:
+        let symbol = consume_while(wrap_opt(is_alpha))
+        tok = TokenType.symbol(String(symbol))
+    }
+}
+
+func is_end(t: TokenType) -> Bool {
+    switch t {
+        case .end: return true
+        default: return false
+    }
+}
+
 func repl_main() {
     print("An S-expression evaluator.")
 
-    var lineBuf = readLine() ?? ""
-    var allTokens = [TokenType]()
-    while lineBuf != "" {
-        allTokens += tokenize(str: lineBuf)
-        lineBuf = readLine() ?? ""
+    next_char()
+    while !is_end(t: tok) {
+        print(tok)
+        next_token()
     }
-
-    build_cons(tokens: allTokens);
-
-    print(allTokens);
 
     print("End.")
-}
-
-func tokenize(str: String) -> [TokenType] {
-    var tokens: [TokenType] = []
-    var number: [Character] = []
-    var symbol: [Character] = []
-
-    func get_num() -> Int {
-        return Int(String(number))!
-    }
-
-    func set_num_sym() {
-        if number.count != 0 {
-            if symbol.count != 0 {
-                tokens.append(TokenType.err)
-                number.removeAll()
-                symbol.removeAll()
-            } else {
-                tokens.append(TokenType.number(get_num()))
-                number.removeAll()
-            }
-        }
-        if symbol.count != 0 {
-            tokens.append(TokenType.symbol(String(symbol)))
-            symbol.removeAll()
-        }
-    }
-
-    for char in str.characters {
-        switch char {
-            case " ", "\n": set_num_sym()
-            case "(": 
-                set_num_sym()
-                tokens.append(TokenType.lparen)
-            case ")":
-                set_num_sym()
-                tokens.append(TokenType.rparen)
-            case ".":
-                set_num_sym()
-                tokens.append(TokenType.dot)
-            case "0"..."9": number.append(char)
-            default: symbol.append(char)
-        }
-    }
-    set_num_sym()
-
-    return tokens
-}
-
-func build_cons(tokens: [TokenType]) {
-    var tokens = tokens
-    switch tokens[0] {
-        case .number:
-            // make_number
-            print(tokens[0])
-        case .symbol:
-            // make_symbol
-            print(tokens[0])
-        default:
-    }
 }
 
 repl_main()
